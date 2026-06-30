@@ -54,10 +54,15 @@ export default function ConfiguracoesPage() {
   }
 
   async function savePriceRow(row: UserPriceRow) {
-    await supabase.from("user_price_table")
-      .update({valor_base:row.valor_base, tempo_base_horas:row.tempo_base_horas})
-      .eq("id",row.id)
-      .catch(e=>console.error("savePriceRow:",e));
+    try {
+      const { error } = await supabase
+        .from("user_price_table")
+        .update({ valor_base: row.valor_base, tempo_base_horas: row.tempo_base_horas })
+        .eq("id", row.id);
+      if (error) console.error("savePriceRow:", error.message);
+    } catch (e) {
+      console.error("savePriceRow:", e);
+    }
   }
 
   async function addPriceRow() {
