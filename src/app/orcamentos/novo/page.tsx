@@ -16,6 +16,20 @@ function fmtMoney(v: number) {
   return (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const DEFAULT_SETTINGS: Settings = {
+  id: 1,
+  valor_minimo: 150,
+  valor_hora: 180,
+  sinal_percentual: 30,
+  mult_complexidade_baixa: 0.85,
+  mult_complexidade_media: 1.0,
+  mult_complexidade_alta: 1.2,
+  adicional_cobertura: 50,
+  taxa_criacao_sim: 80,
+  taxa_criacao_adaptar: 40,
+  taxa_criacao_nao: 0,
+};
+
 export default function NovoOrcamentoPage() {
   const supabase = supabaseBrowser();
   const router = useRouter();
@@ -23,6 +37,10 @@ export default function NovoOrcamentoPage() {
   const [priceTable, setPriceTable] = useState<PriceRow[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [settingsWarning, setSettingsWarning] = useState<string | null>(null);
+  const [priceTableWarning, setPriceTableWarning] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     nome: "", whatsapp: "", instagram: "", cidade: "", origem: "Instagram",
@@ -32,29 +50,112 @@ export default function NovoOrcamentoPage() {
     obsInternas: "", referencias: "",
   });
 
+  async function load() {
+    setLoading(true);
+    setLoadError(null);
+    setSettingsWarning(null);
+    setPriceTableWarning(null);
+    try {
+      // price_table e settings são buscados em paralelo, mas cada um trata
+      // seu próprio erro — uma falha não derruba a outra nem trava a página.
+      const [priceResult, settingsResult] = await Promise.allSettled([
+        supabase.from("price_table").select("*").order("regiao"),
+        supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
+      ]);
+
+      // ---- price_table ----
+      if (priceResult.status === "fulfilled") {
+        const { data: pt, error: ptError } = priceResult.value;
+        if (ptError) {
+          console.error("Erro ao carregar price_table:", ptError);
+          setPriceTableWarning(readableErr(ptError, "Não foi possível carregar a tabela de preços."));
+          setPriceTable([]);
+        } else if (!pt || pt.length === 0) {
+          setPriceTableWarning("Nenhuma região cadastrada na tabela de preços ainda. Cadastre os valores em Configurações para o cálculo automático funcionar.");
+          setPriceTable([]);
+        } else {
+          setPriceTable(pt as any);
+          setForm((f) => ({ ...f, regiao: f.regiao || (pt as any)[0].regiao }));
+        }
+      } else {
+        console.error("Erro inesperado ao carregar price_table:", priceResult.reason);
+        setPriceTableWarning(readableErr(priceResult.reason, "Não foi possível carregar a tabela de preços."));
+      }
+
+      // ---- settings ----
+      if (settingsResult.status === "fulfilled") {
+        const { data: st, error: stError } = settingsResult.value;
+        if (stError) {
+          console.error("Erro ao carregar settings:", stError);
+          setSettingsWarning(readableErr(stError, "Não foi possível carregar as configurações. Usando valores padrão."));
+          setSettings(DEFAULT_SETTINGS);
+        } else if (!st) {
+          setSettingsWarning("Nenhuma configuração encontrada (tabela settings vazia). Usando valores padrão até alguém salvar em Configurações.");
+          setSettings(DEFAULT_SETTINGS);
+        } else {
+          setSettings(st as any);
+        }
+      } else {
+        console.error("Erro inesperado ao carregar settings:", settingsResult.reason);
+        setSettingsWarning(readableErr(settingsResult.reason, "Não foi possível carregar as configurações. Usando valores padrão."));
+        setSettings(DEFAULT_SETTINGS);
+      }
+    } catch (err) {
+      // rede caiu, supabaseBrowser() falhou, etc — qualquer coisa fora do
+      // Promise.allSettled cai aqui.
+      console.error("Erro inesperado ao carregar página de novo orçamento:", err);
+      setLoadError(readableErr(err, "Não foi possível carregar a página. Tente novamente."));
+      setSettings(DEFAULT_SETTINGS);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    (async () => {
-      const { data: pt } = await supabase.from("price_table").select("*").order("regiao");
-      const { data: st } = await supabase.from("settings").select("*").eq("id", 1).single();
-      setPriceTable((pt as any) || []);
-      setSettings(st as any);
-      if (pt && pt.length) setForm((f) => ({ ...f, regiao: f.regiao || pt[0].regiao }));
-    })();
+    load();
   }, []);
 
-  if (!settings) {
+  function readableErr(err: any, fallback: string): string {
+    if (!err) return fallback;
+    if (typeof err === "string") return err;
+    if (err.message) return err.message;
+    if (err.error_description) return err.error_description;
+    try {
+      const s = JSON.stringify(err);
+      if (s && s !== "{}") return s;
+    } catch {}
+    return fallback;
+  }
+
+  if (loading) {
     return (
       <Shell>
-        <div className="text-muted">carregando…</div>
+        <div className="card p-10 text-center text-muted">Carregando formulário…</div>
       </Shell>
     );
   }
+
+  if (loadError) {
+    return (
+      <Shell>
+        <div className="card p-7 max-w-lg">
+          <div className="text-[15px] font-semibold mb-2 text-inkbright">Erro ao carregar a página</div>
+          <p className="text-muted text-[13.5px] leading-relaxed">{loadError}</p>
+          <button className="btn mt-4" onClick={() => load()}>Tentar novamente</button>
+        </div>
+      </Shell>
+    );
+  }
+
+  // settings sempre terá um valor aqui (real ou DEFAULT_SETTINGS) — a página
+  // nunca fica travada esperando essa tabela.
+  const effectiveSettings = settings || DEFAULT_SETTINGS;
 
   const isCobertura = form.tattooAntiga === "Sim, e é cobertura" || form.estilo === "Cobertura";
   const calc = calcBudget(
     { regiao: form.regiao, complexidade: form.complexidade, isCobertura, autoral: form.autoral },
     priceTable,
-    settings
+    effectiveSettings
   );
 
   async function handleSubmit() {
@@ -63,62 +164,64 @@ export default function NovoOrcamentoPage() {
       return;
     }
     setSaving(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const user = userData?.user;
 
-    const { data: client, error: clientErr } = await supabase
-      .from("clients")
-      .insert({
-        name: form.nome,
-        whatsapp: form.whatsapp,
-        instagram: form.instagram,
-        cidade: form.cidade,
-        origem: form.origem,
-        created_by: user?.id,
-      })
-      .select()
-      .single();
+      const { data: client, error: clientErr } = await supabase
+        .from("clients")
+        .insert({
+          name: form.nome,
+          whatsapp: form.whatsapp,
+          instagram: form.instagram,
+          cidade: form.cidade,
+          origem: form.origem,
+          created_by: user?.id,
+        })
+        .select()
+        .single();
 
-    if (clientErr || !client) {
-      alert("Erro ao salvar cliente: " + clientErr?.message);
+      if (clientErr) throw clientErr;
+      if (!client) throw new Error("Cliente não foi salvo.");
+
+      const { data: budget, error: budgetErr } = await supabase
+        .from("budgets")
+        .insert({
+          client_id: client.id,
+          ideia: form.ideia,
+          estilo: form.estilo,
+          regiao: form.regiao,
+          tamanho: form.tamanho || form.regiao,
+          cor: form.cor,
+          complexidade: form.complexidade,
+          tattoo_antiga: form.tattooAntiga,
+          autoral: form.autoral,
+          valor_base: calc.valorBase,
+          multiplicador: calc.multiplicador,
+          valor_sugerido: calc.valorSugerido,
+          valor_final: calc.valorSugerido,
+          valor_sinal: calc.sinalSugerido,
+          tempo_estimado: calc.tempoEstimado,
+          num_sessoes: calc.sessoesSugeridas,
+          obs_internas: form.obsInternas,
+          referencias: form.referencias,
+          status: "novo",
+          created_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (budgetErr) throw budgetErr;
+      if (!budget) throw new Error("Orçamento não foi salvo.");
+
+      router.push(`/orcamentos/${budget.id}`);
+    } catch (err) {
+      console.error("Erro ao criar orçamento:", err);
+      alert("Não foi possível criar o orçamento: " + readableErr(err, "erro desconhecido"));
+    } finally {
       setSaving(false);
-      return;
     }
-
-    const { data: budget, error: budgetErr } = await supabase
-      .from("budgets")
-      .insert({
-        client_id: client.id,
-        ideia: form.ideia,
-        estilo: form.estilo,
-        regiao: form.regiao,
-        tamanho: form.tamanho || form.regiao,
-        cor: form.cor,
-        complexidade: form.complexidade,
-        tattoo_antiga: form.tattooAntiga,
-        autoral: form.autoral,
-        valor_base: calc.valorBase,
-        multiplicador: calc.multiplicador,
-        valor_sugerido: calc.valorSugerido,
-        valor_final: calc.valorSugerido,
-        valor_sinal: calc.sinalSugerido,
-        tempo_estimado: calc.tempoEstimado,
-        num_sessoes: calc.sessoesSugeridas,
-        obs_internas: form.obsInternas,
-        referencias: form.referencias,
-        status: "novo",
-        created_by: user?.id,
-      })
-      .select()
-      .single();
-
-    setSaving(false);
-    if (budgetErr || !budget) {
-      alert("Erro ao salvar orçamento: " + budgetErr?.message);
-      return;
-    }
-    router.push(`/orcamentos/${budget.id}`);
   }
 
   return (
@@ -129,6 +232,21 @@ export default function NovoOrcamentoPage() {
           <div className="text-muted text-[13.5px] mt-1">o valor é calculado a partir da tabela de preços × complexidade</div>
         </div>
       </div>
+
+      {(priceTableWarning || settingsWarning) && (
+        <div className="card p-4 mb-5 border-gold/40 bg-gold/[0.06] flex flex-col gap-2">
+          {priceTableWarning && (
+            <div className="text-[12.5px] text-gold">
+              <b>Tabela de preços:</b> {priceTableWarning}
+            </div>
+          )}
+          {settingsWarning && (
+            <div className="text-[12.5px] text-gold">
+              <b>Configurações:</b> {settingsWarning}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4.5 items-start">
         <div className="card p-5.5 flex flex-col gap-5">
