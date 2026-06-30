@@ -128,22 +128,19 @@ REGRAS ABSOLUTAS:
       return NextResponse.json({ error: "A IA não retornou uma resposta. Tente novamente." }, { status: 502 });
     }
 
-    // 7. Incrementa contador de uso
-    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
-try {
-  const month = new Date().toISOString().slice(0, 7);
-
-  const { error: usageError } = await supabase.rpc("increment_ai_usage", {
-    p_user_id: user.id,
-    p_month: month,
-  });
-
-  if (usageError) {
-    console.warn("increment_ai_usage falhou:", usageError.message);
-  }
-} catch (usageError) {
-  console.warn("increment_ai_usage indisponível:", usageError);
-}
+    // 7. Incrementa contador de uso (opcional — não quebra a geração se falhar)
+    try {
+      const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const { error: usageError } = await supabase.rpc("increment_ai_usage", {
+        p_user_id: user.id,
+        p_month: month,
+      });
+      if (usageError) {
+        console.warn("increment_ai_usage falhou (não crítico):", usageError.message);
+      }
+    } catch (usageErr) {
+      console.warn("increment_ai_usage indisponível (não crítico):", usageErr);
+    }
 
     return NextResponse.json({ suggestion });
   } catch (e: any) {
