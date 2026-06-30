@@ -98,7 +98,39 @@ supabase/schema.sql      script completo do banco de dados
 
 ---
 
-## 7. Sobre as permissões (RLS)
+## 7. Já tinha rodado o schema antes? (migração)
+
+Se você já criou as tabelas com a versão anterior deste projeto (que usava `ENUM` para o papel do usuário e tinha um bug no trigger de cadastro), faça assim:
+
+1. Abra `supabase/schema.sql` — no topo existe um bloco **RESET OPCIONAL** comentado.
+2. Se você ainda **não tem orçamentos reais** cadastrados, descomente esse bloco, rode-o, comente de volta (ou ignore) e rode o restante do arquivo inteiro.
+3. Se você **já tem dados reais**, não use o reset — me avise que preparamos uma migração que preserva os dados.
+4. Depois de rodar o schema novo, rode este comando para qualquer usuário que tenha sido criado manualmente (sem perfil ainda) — o próprio schema já faz esse backfill automaticamente no final, mas você pode confirmar com:
+
+```sql
+select id, email from auth.users u
+where not exists (select 1 from public.profiles p where p.id = u.id);
+```
+
+Se a consulta acima não retornar nenhuma linha, todos os usuários têm perfil.
+
+5. Promova o admin:
+
+```sql
+update public.profiles set role = 'admin' where email = 'seuemail@exemplo.com';
+```
+
+### O que mudou e por quê
+
+- **Papéis agora são texto simples** (`admin`, `attendant`, `viewer`) em vez de `ENUM`. Enums quebram fácil em scripts que rodam mais de uma vez ("type already exists") e travavam a criação de usuário quando o valor vindo do cadastro não batia exatamente com o enum.
+- **A função que checava o papel do usuário foi renomeada** de `current_role()` para `get_my_role()` — `current_role` é uma palavra reservada do Postgres e usá-la como nome de função custom é arriscado.
+- **O cadastro nunca mais derruba a criação do usuário**: a função `handle_new_user()` agora roda dentro de um bloco `BEGIN/EXCEPTION`, então mesmo que a criação do perfil falhe por algum motivo, o usuário continua sendo criado normalmente no Supabase Auth (sem mais "Database error creating new user").
+- **O papel nunca vem do navegador**: antes o cadastro enviava `role` no metadata; agora isso foi removido do front e o backend sempre cria o perfil novo como `attendant`, por segurança (evita que alguém se autopromova a admin só editando a requisição de cadastro).
+- **Toda página que consulta o Supabase agora tem `try/catch`, mostra o erro real na tela e nunca fica presa em "Carregando..."** — incluindo distinção entre "perfil não encontrado" e "sem permissão" (RLS).
+
+---
+
+## 8. Sobre as permissões (RLS)
 
 As regras não ficam só no front-end — estão escritas direto no banco (Row Level Security), então mesmo que alguém tente acessar a API diretamente, o Supabase bloqueia:
 

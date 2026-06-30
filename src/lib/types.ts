@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "atendente" | "visualizacao";
+export type UserRole = "admin" | "attendant" | "viewer";
 
 export type BudgetStatus =
   | "novo"

@@ -18,15 +18,23 @@ export default function DashboardPage() {
   const supabase = supabaseBrowser();
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("budgets")
-        .select("*, client:clients(*)")
-        .order("created_at", { ascending: false });
-      setBudgets((data as any) || []);
-      setLoading(false);
+      try {
+        const { data, error: fetchError } = await supabase
+          .from("budgets")
+          .select("*, client:clients(*)")
+          .order("created_at", { ascending: false });
+        if (fetchError) throw fetchError;
+        setBudgets((data as any) || []);
+      } catch (err) {
+        console.error("Erro ao carregar dashboard:", err);
+        setError(err instanceof Error ? err.message : "Não foi possível carregar os dados do dashboard.");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -47,6 +55,12 @@ export default function DashboardPage() {
           + Novo orçamento
         </Link>
       </div>
+
+      {error && (
+        <div className="card p-4 mb-5 border-ink/40 bg-ink/[0.07]">
+          <div className="text-[12.5px] text-muted">{error}</div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {STATUS_LIST.map((s) => (

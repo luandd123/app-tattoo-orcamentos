@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
 import StatusBadge from "@/components/StatusBadge";
 import { supabaseBrowser } from "@/lib/supabaseClient";
+import { getCurrentUserAndProfile, readableError, isPermissionError } from "@/lib/profileUtils";
 import { Budget, BudgetStatus, STATUS_LIST } from "@/lib/types";
 
 function fmtMoney(v: number) {
@@ -29,15 +30,58 @@ function OrcamentosContent() {
   const [sort, setSort] = useState<SortField>("criado_novo");
   const [query, setQuery] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   async function load() {
     setLoading(true);
-    const { data } = await supabase
-      .from("budgets")
-      .select("*, client:clients(*)")
-      .order("created_at", { ascending: false });
-    setBudgets((data as any) || []);
-    setLoading(false);
+    setError(null);
+    setProfileMissing(false);
+    setPermissionDenied(false);
+    try {
+      const result = await getCurrentUserAndProfile(supabase);
+
+      if (!result.user) {
+        // sem sessão — o middleware deveria ter redirecionado para /login,
+        // mas por segurança não deixamos a tela presa em loading.
+        setError(result.errorMessage || "Sessão não encontrada. Faça login novamente.");
+        setBudgets([]);
+        return;
+      }
+
+      if (!result.profile) {
+        if (result.errorType === "permission") {
+          setPermissionDenied(true);
+        } else {
+          setProfileMissing(true);
+        }
+        setBudgets([]);
+        return;
+      }
+
+      const { data, error: budgetsError } = await supabase
+        .from("budgets")
+        .select("*, client:clients(*)")
+        .order("created_at", { ascending: false });
+
+      if (budgetsError) {
+        if (isPermissionError(budgetsError)) {
+          setPermissionDenied(true);
+          setBudgets([]);
+          return;
+        }
+        throw budgetsError;
+      }
+
+      setBudgets((data as any) || []);
+    } catch (err: any) {
+      console.error("Erro ao carregar orçamentos:", err);
+      setError(readableError(err, "Não foi possível carregar os orçamentos. Tente novamente."));
+      setBudgets([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -73,18 +117,65 @@ function OrcamentosContent() {
   async function updateStatus(id: string, newStatus: BudgetStatus) {
     const budget = budgets.find((b) => b.id === id);
     if (!budget || budget.status === newStatus) return;
+    const previousStatus = budget.status;
     // otimista
     setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, status: newStatus } : b)));
-    await supabase.from("budgets").update({ status: newStatus }).eq("id", id);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    await supabase.from("status_history").insert({
-      budget_id: id,
-      old_status: budget.status,
-      new_status: newStatus,
-      changed_by: user?.id,
-    });
+    try {
+      const { error: updateError } = await supabase.from("budgets").update({ status: newStatus }).eq("id", id);
+      if (updateError) throw updateError;
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const { error: historyError } = await supabase.from("status_history").insert({
+        budget_id: id,
+        old_status: previousStatus,
+        new_status: newStatus,
+        changed_by: user?.id,
+      });
+      if (historyError) throw historyError;
+    } catch (err: any) {
+      console.error("Erro ao atualizar status:", err);
+      // reverte a atualização otimista
+      setBudgets((prev) => prev.map((b) => (b.id === id ? { ...b, status: previousStatus } : b)));
+      alert("Não foi possível atualizar o status: " + readableError(err, "erro desconhecido"));
+    }
+  }
+
+  if (profileMissing) {
+    return (
+      <Shell>
+        <div className="card p-7 max-w-lg">
+          <div className="text-[15px] font-semibold mb-2">Perfil não encontrado</div>
+          <p className="text-muted text-[13.5px] leading-relaxed">
+            Você está logado, mas não existe um registro seu na tabela <code className="text-gold">profiles</code>.
+            Verifique a tabela profiles no Supabase — normalmente ela é preenchida automaticamente ao criar a conta
+            (trigger <code className="text-gold">handle_new_user</code>). Se o trigger não rodou, crie a linha manualmente
+            ou cadastre-se novamente.
+          </p>
+          <button className="btn mt-4" onClick={() => load()}>Tentar novamente</button>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (permissionDenied) {
+    return (
+      <Shell>
+        <div className="card p-7 max-w-lg">
+          <div className="text-[15px] font-semibold mb-2 text-inkbright">Sem permissão para carregar orçamentos.</div>
+          <p className="text-muted text-[13.5px] leading-relaxed">
+            Seu usuário está autenticado, mas as políticas de segurança (RLS) do banco não permitiram a leitura.
+            Confira se o seu perfil em <code className="text-gold">profiles</code> tem um <code className="text-gold">role</code> válido
+            (admin, attendant ou viewer) e se as policies da tabela <code className="text-gold">budgets</code> foram aplicadas.
+          </p>
+          <button className="btn mt-4" onClick={() => load()}>Tentar novamente</button>
+        </div>
+      </Shell>
+    );
   }
 
   return (
@@ -117,33 +208,57 @@ function OrcamentosContent() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5 flex-wrap mb-4">
-        <input
-          placeholder="Buscar por nome…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="max-w-[260px]"
-        />
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="max-w-[220px]">
-          <option value="todos">Todos os status</option>
-          {STATUS_LIST.map((s) => (
-            <option key={s.key} value={s.key}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-        {view === "lista" && (
-          <select value={sort} onChange={(e) => setSort(e.target.value as SortField)} className="max-w-[220px]">
-            <option value="criado_novo">Mais novo primeiro</option>
-            <option value="criado_antigo">Mais antigo primeiro</option>
-            <option value="regiao">Região do corpo (A-Z)</option>
-            <option value="valor">Valor (maior primeiro)</option>
-            <option value="cliente">Cliente (A-Z)</option>
-          </select>
-        )}
-      </div>
+      {error && (
+        <div className="card p-4 mb-5 border-ink/40 bg-ink/[0.07]">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-[13.5px] font-semibold text-inkbright mb-1">Erro ao carregar orçamentos</div>
+              <div className="text-[12.5px] text-muted">{error}</div>
+            </div>
+            <button className="btn sm" onClick={() => load()}>Tentar novamente</button>
+          </div>
+        </div>
+      )}
 
-      {view === "lista" ? (
+      {loading ? (
+        <div className="card p-10 text-center text-muted">Carregando orçamentos…</div>
+      ) : error && budgets.length === 0 ? null : filtered.length === 0 && budgets.length === 0 ? (
+        <div className="card p-14 text-center">
+          <div className="font-display italic text-[20px] text-muted2 mb-2">tela em branco</div>
+          <div className="text-muted text-[13.5px] mb-5">Nenhum orçamento cadastrado ainda.</div>
+          <Link href="/orcamentos/novo" className="btn btn-primary">
+            + Novo orçamento
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2.5 flex-wrap mb-4">
+            <input
+              placeholder="Buscar por nome…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="max-w-[260px]"
+            />
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="max-w-[220px]">
+              <option value="todos">Todos os status</option>
+              {STATUS_LIST.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            {view === "lista" && (
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortField)} className="max-w-[220px]">
+                <option value="criado_novo">Mais novo primeiro</option>
+                <option value="criado_antigo">Mais antigo primeiro</option>
+                <option value="regiao">Região do corpo (A-Z)</option>
+                <option value="valor">Valor (maior primeiro)</option>
+                <option value="cliente">Cliente (A-Z)</option>
+              </select>
+            )}
+          </div>
+
+          {view === "lista" ? (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-[13px] border-collapse">
@@ -231,6 +346,8 @@ function OrcamentosContent() {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </Shell>
   );

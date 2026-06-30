@@ -23,19 +23,22 @@ export default function LoginPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // primeiro usuário cadastrado deve virar admin manualmente no Supabase
-        // (veja instruções no README / final do schema.sql)
+        // role nunca é enviado pelo cliente: o backend sempre cria o
+        // perfil como "attendant" (veja public.handle_new_user no schema.sql)
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { name, role: "atendente" } },
+          options: { data: { name } },
         });
         if (error) throw error;
       }
       router.push("/");
       router.refresh();
     } catch (err: any) {
-      setError(err.message === "Invalid login credentials" ? "E-mail ou senha inválidos." : err.message);
+      console.error("Erro de autenticação:", err);
+      const message =
+        err?.message || err?.error_description || err?.msg || "Não foi possível concluir. Verifique os dados e tente novamente.";
+      setError(message === "Invalid login credentials" ? "E-mail ou senha inválidos." : message);
     } finally {
       setLoading(false);
     }

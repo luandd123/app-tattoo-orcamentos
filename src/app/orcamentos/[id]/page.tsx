@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Shell from "@/components/Shell";
 import StatusBadge from "@/components/StatusBadge";
 import { supabaseBrowser } from "@/lib/supabaseClient";
+import { readableError } from "@/lib/profileUtils";
 import { calcAjusteManual } from "@/lib/calc";
 import { Budget, BudgetStatus, ManualAdjustment, STATUS_LIST } from "@/lib/types";
 
@@ -45,27 +46,70 @@ export default function OrcamentoDetalhePage() {
   const [editValor, setEditValor] = useState<string>("");
   const [motivo, setMotivo] = useState("");
   const [showAdjustForm, setShowAdjustForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    const { data } = await supabase.from("budgets").select("*, client:clients(*)").eq("id", id).single();
-    setBudget(data as any);
-    if (data) setEditValor(String(data.valor_final));
-    const { data: adj } = await supabase
-      .from("manual_adjustments")
-      .select("*")
-      .eq("budget_id", id)
-      .order("adjusted_at", { ascending: false });
-    setAdjustments((adj as any) || []);
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: budgetError } = await supabase
+        .from("budgets")
+        .select("*, client:clients(*)")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (budgetError) throw budgetError;
+
+      if (!data) {
+        setError("Orçamento não encontrado (ou você não tem permissão para vê-lo).");
+        setBudget(null);
+        return;
+      }
+
+      setBudget(data as any);
+      setEditValor(String((data as any).valor_final));
+
+      const { data: adj, error: adjError } = await supabase
+        .from("manual_adjustments")
+        .select("*")
+        .eq("budget_id", id)
+        .order("adjusted_at", { ascending: false });
+
+      if (adjError) throw adjError;
+      setAdjustments((adj as any) || []);
+    } catch (err: any) {
+      console.error("Erro ao carregar orçamento:", err);
+      setError(readableError(err, "Não foi possível carregar este orçamento."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     if (id) load();
   }, [id]);
 
-  if (!budget) {
+  if (loading) {
     return (
       <Shell>
-        <div className="text-muted">carregando…</div>
+        <div className="card p-10 text-center text-muted">Carregando orçamento…</div>
+      </Shell>
+    );
+  }
+
+  if (error || !budget) {
+    return (
+      <Shell>
+        <div className="card p-7 max-w-lg">
+          <div className="text-[15px] font-semibold mb-2 text-inkbright">
+            {error || "Orçamento não encontrado."}
+          </div>
+          <div className="flex gap-2.5 mt-4">
+            <button className="btn" onClick={() => load()}>Tentar novamente</button>
+            <button className="btn btn-primary" onClick={() => router.push("/orcamentos")}>← Voltar para orçamentos</button>
+          </div>
+        </div>
       </Shell>
     );
   }
@@ -73,12 +117,23 @@ export default function OrcamentoDetalhePage() {
   async function updateStatus(newStatus: BudgetStatus) {
     if (!budget) return;
     const oldStatus = budget.status;
-    await supabase.from("budgets").update({ status: newStatus }).eq("id", budget.id);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    await supabase.from("status_history").insert({ budget_id: budget.id, old_status: oldStatus, new_status: newStatus, changed_by: user?.id });
     setBudget({ ...budget, status: newStatus });
+    try {
+      const { error: updateError } = await supabase.from("budgets").update({ status: newStatus }).eq("id", budget.id);
+      if (updateError) throw updateError;
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const { error: historyError } = await supabase
+        .from("status_history")
+        .insert({ budget_id: budget.id, old_status: oldStatus, new_status: newStatus, changed_by: userData?.user?.id });
+      if (historyError) throw historyError;
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
+      setBudget({ ...budget, status: oldStatus });
+      alert("Não foi possível atualizar o status: " + readableError(err, "erro desconhecido"));
+    }
   }
 
   async function saveAdjustment() {
@@ -88,24 +143,34 @@ export default function OrcamentoDetalhePage() {
     const valorOriginal = budget.valor_sugerido;
     const result = calcAjusteManual(valorOriginal, novoValor);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
 
-    await supabase.from("budgets").update({ valor_final: novoValor, motivo_ajuste: motivo }).eq("id", budget.id);
-    await supabase.from("manual_adjustments").insert({
-      budget_id: budget.id,
-      valor_original: result.valorOriginal,
-      valor_ajustado: result.valorAjustado,
-      diferenca_valor: result.diferencaValor,
-      diferenca_percentual: result.diferencaPercentual,
-      motivo,
-      adjusted_by: user?.id,
-    });
+      const { error: updateError } = await supabase
+        .from("budgets")
+        .update({ valor_final: novoValor, motivo_ajuste: motivo })
+        .eq("id", budget.id);
+      if (updateError) throw updateError;
 
-    setShowAdjustForm(false);
-    setMotivo("");
-    load();
+      const { error: adjError } = await supabase.from("manual_adjustments").insert({
+        budget_id: budget.id,
+        valor_original: result.valorOriginal,
+        valor_ajustado: result.valorAjustado,
+        diferenca_valor: result.diferencaValor,
+        diferenca_percentual: result.diferencaPercentual,
+        motivo,
+        adjusted_by: userData?.user?.id,
+      });
+      if (adjError) throw adjError;
+
+      setShowAdjustForm(false);
+      setMotivo("");
+      load();
+    } catch (err) {
+      console.error("Erro ao salvar ajuste manual:", err);
+      alert("Não foi possível salvar o ajuste: " + readableError(err, "erro desconhecido"));
+    }
   }
 
   const msg = buildWhatsappMessage(budget);
