@@ -226,11 +226,9 @@ export default function NovoOrcamentoPage() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between flex-wrap gap-3.5 mb-6">
-        <div>
-          <div className="text-2xl font-semibold">Novo orçamento</div>
-          <div className="text-muted text-[13.5px] mt-1">o valor é calculado a partir da tabela de preços × complexidade</div>
-        </div>
+      <div className="flex flex-col gap-1 mb-7">
+        <div className="text-[26px] sm:text-2xl font-semibold">Novo orçamento</div>
+        <div className="text-muted text-[13.5px]">o valor é calculado a partir da tabela de preços × complexidade</div>
       </div>
 
       {(priceTableWarning || settingsWarning) && (
@@ -248,8 +246,8 @@ export default function NovoOrcamentoPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4.5 items-start">
-        <div className="card p-5.5 flex flex-col gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 items-start">
+        <div className="card p-6 flex flex-col gap-5">
           <Section title="cliente">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Nome do cliente">
@@ -326,7 +324,7 @@ export default function NovoOrcamentoPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="card p-5.5">
+          <div className="card p-6">
             <div className="flex items-center gap-3 mb-3.5">
               <span className="font-display italic text-[13px] text-muted2">cálculo sugerido</span>
               <div className="flex-1 h-px bg-[#202028]" />

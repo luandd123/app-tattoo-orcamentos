@@ -177,19 +177,19 @@ export default function OrcamentoDetalhePage() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between flex-wrap gap-3.5 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
         <div>
-          <div className="text-2xl font-semibold">{budget.client?.name}</div>
+          <div className="text-[24px] sm:text-2xl font-semibold break-words">{budget.client?.name}</div>
           <div className="text-muted text-[13.5px] mt-1">
             criado em {fmtDate(budget.created_at)} · atualizado {fmtDate(budget.updated_at)}
           </div>
         </div>
-        <button className="btn" onClick={() => router.push("/orcamentos")}>← Voltar</button>
+        <button className="btn w-full sm:w-auto justify-center" onClick={() => router.push("/orcamentos")}>← Voltar</button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4.5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 items-start">
         <div className="flex flex-col gap-4">
-          <div className="card p-5.5">
+          <div className="card p-6">
             <SectionTitle title="cliente" />
             <KV k="WhatsApp" v={budget.client?.whatsapp} />
             <KV k="Instagram" v={budget.client?.instagram} />
@@ -214,7 +214,7 @@ export default function OrcamentoDetalhePage() {
             )}
           </div>
 
-          <div className="card p-5.5">
+          <div className="card p-6">
             <div className="flex items-center justify-between mb-3.5">
               <SectionTitle title="tabela de cálculo sugerido" noLine />
               <button className="btn btn-gold py-1.5 px-3 text-[12px]" onClick={() => setShowAdjustForm((v) => !v)}>
@@ -250,8 +250,8 @@ export default function OrcamentoDetalhePage() {
             )}
 
             {adjustments.length > 0 && (
-              <div className="overflow-x-auto mt-2">
-                <table className="w-full text-[12.5px] border-collapse">
+              <div className="overflow-x-auto mt-2 -mx-2 px-2">
+                <table className="w-full text-[12.5px] border-collapse min-w-[560px]">
                   <thead>
                     <tr>
                       {["Original", "Ajustado", "Diferença R$", "Diferença %", "Motivo", "Quando"].map((h) => (
@@ -286,7 +286,7 @@ export default function OrcamentoDetalhePage() {
             </div>
           </div>
 
-          <div className="card p-5.5">
+          <div className="card p-6">
             <SectionTitle title="status" noLine />
             <select value={budget.status} onChange={(e) => updateStatus(e.target.value as BudgetStatus)} className="font-semibold mt-2">
               {STATUS_LIST.map((s) => (
@@ -295,7 +295,7 @@ export default function OrcamentoDetalhePage() {
             </select>
           </div>
 
-          <div className="card p-5.5">
+          <div className="card p-6">
             <SectionTitle title="mensagem whatsapp" noLine />
             <div className="bg-surface2 border border-[#2b2b36] rounded-[11px] p-4 mt-2 text-[12.5px] leading-relaxed whitespace-pre-wrap font-mono text-[#d8d4cb]">
               {msg}

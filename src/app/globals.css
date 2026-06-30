@@ -28,11 +28,19 @@ body {
 .btn:hover { background: #222230; border-color: #3a3a48; }
 .btn-primary { background: linear-gradient(135deg,#c9344a,#9c2438); border-color: transparent; color: #fff; box-shadow: 0 6px 18px rgba(201,52,74,.3); }
 .btn-gold { background: linear-gradient(135deg,#c9a24b,#9c814a); border-color: transparent; color: #181410; }
+.btn-logout { background: transparent; border-color: rgba(201,52,74,.4); color: #e8475f; }
+.btn-logout:hover { background: rgba(201,52,74,.1); border-color: rgba(201,52,74,.6); }
 
 input, select, textarea {
   background: #1c1c24; border: 1px solid #2b2b36; color: #ece8e1;
-  border-radius: 9px; padding: 10px 12px; font-size: 13.5px; width: 100%; outline: none;
+  border-radius: 9px; padding: 11px 13px; font-size: 14px; width: 100%; outline: none;
 }
 input:focus, select:focus, textarea:focus { border-color: #c9344a; box-shadow: 0 0 0 3px rgba(201,52,74,.15); }
 
 .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:100px; font-size:11.5px; font-weight:600; border:1px solid currentColor; background:rgba(255,255,255,.03); }
+
+/* alvo de toque confortável em telas pequenas */
+@media (max-width: 1023px) {
+  .btn { padding: 11px 18px; font-size: 14px; }
+  input, select, textarea { padding: 12px 14px; font-size: 16px; } /* 16px evita zoom automático no iOS */
+}

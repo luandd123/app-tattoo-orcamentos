@@ -180,29 +180,29 @@ function OrcamentosContent() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between flex-wrap gap-3.5 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
         <div>
-          <div className="text-2xl font-semibold">Orçamentos</div>
+          <div className="text-[26px] sm:text-2xl font-semibold">Orçamentos</div>
           <div className="text-muted text-[13.5px] mt-1">
             {loading ? "carregando…" : `${filtered.length} resultado${filtered.length === 1 ? "" : "s"}`}
           </div>
         </div>
-        <div className="flex items-center gap-2.5">
-          <div className="flex bg-surface2 border border-[#2b2b36] rounded-[10px] p-1">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <div className="flex bg-surface2 border border-[#2b2b36] rounded-[10px] p-1 self-start sm:self-auto">
             <button
               onClick={() => setView("lista")}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold ${view === "lista" ? "bg-surface3 text-text" : "text-muted"}`}
+              className={`px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-lg text-[13px] sm:text-[12.5px] font-semibold ${view === "lista" ? "bg-surface3 text-text" : "text-muted"}`}
             >
               Lista
             </button>
             <button
               onClick={() => setView("kanban")}
-              className={`px-3.5 py-1.5 rounded-lg text-[12.5px] font-semibold ${view === "kanban" ? "bg-surface3 text-text" : "text-muted"}`}
+              className={`px-4 py-2 sm:px-3.5 sm:py-1.5 rounded-lg text-[13px] sm:text-[12.5px] font-semibold ${view === "kanban" ? "bg-surface3 text-text" : "text-muted"}`}
             >
               Kanban
             </button>
           </div>
-          <Link href="/orcamentos/novo" className="btn btn-primary">
+          <Link href="/orcamentos/novo" className="btn btn-primary w-full sm:w-auto justify-center">
             + Novo orçamento
           </Link>
         </div>
@@ -223,7 +223,7 @@ function OrcamentosContent() {
       {loading ? (
         <div className="card p-10 text-center text-muted">Carregando orçamentos…</div>
       ) : error && budgets.length === 0 ? null : filtered.length === 0 && budgets.length === 0 ? (
-        <div className="card p-14 text-center">
+        <div className="card p-10 sm:p-14 text-center">
           <div className="font-display italic text-[20px] text-muted2 mb-2">tela em branco</div>
           <div className="text-muted text-[13.5px] mb-5">Nenhum orçamento cadastrado ainda.</div>
           <Link href="/orcamentos/novo" className="btn btn-primary">
@@ -232,14 +232,14 @@ function OrcamentosContent() {
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2.5 flex-wrap mb-4">
+          <div className="flex flex-col sm:flex-row gap-2.5 mb-5">
             <input
               placeholder="Buscar por nome…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="max-w-[260px]"
+              className="w-full sm:max-w-[260px]"
             />
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="max-w-[220px]">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="w-full sm:max-w-[220px]">
               <option value="todos">Todos os status</option>
               {STATUS_LIST.map((s) => (
                 <option key={s.key} value={s.key}>
@@ -248,7 +248,7 @@ function OrcamentosContent() {
               ))}
             </select>
             {view === "lista" && (
-              <select value={sort} onChange={(e) => setSort(e.target.value as SortField)} className="max-w-[220px]">
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortField)} className="w-full sm:max-w-[220px]">
                 <option value="criado_novo">Mais novo primeiro</option>
                 <option value="criado_antigo">Mais antigo primeiro</option>
                 <option value="regiao">Região do corpo (A-Z)</option>
@@ -259,13 +259,13 @@ function OrcamentosContent() {
           </div>
 
           {view === "lista" ? (
-        <div className="card overflow-hidden">
+        <div className="card overflow-hidden !p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px] border-collapse">
+            <table className="w-full text-[13px] border-collapse min-w-[760px]">
               <thead>
                 <tr>
                   {["Cliente", "WhatsApp", "Região", "Valor final", "Status", "Criado em", ""].map((h) => (
-                    <th key={h} className="text-left text-[11px] uppercase tracking-wide text-muted2 px-3.5 py-2.5 border-b border-[#202028] font-semibold whitespace-nowrap">
+                    <th key={h} className="text-left text-[11px] uppercase tracking-wide text-muted2 px-4 py-3 border-b border-[#202028] font-semibold whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -274,13 +274,13 @@ function OrcamentosContent() {
               <tbody>
                 {filtered.map((b) => (
                   <tr key={b.id} className="hover:bg-white/[0.018]">
-                    <td className="px-3.5 py-3 border-b border-[#202028] font-semibold whitespace-nowrap">{b.client?.name || "—"}</td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">{b.client?.whatsapp || "—"}</td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">{b.regiao}</td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] font-bold whitespace-nowrap">{fmtMoney(b.valor_final)}</td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap"><StatusBadge status={b.status} /></td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">{fmtDate(b.created_at)}</td>
-                    <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">
+                    <td className="px-4 py-3.5 border-b border-[#202028] font-semibold whitespace-nowrap">{b.client?.name || "—"}</td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">{b.client?.whatsapp || "—"}</td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">{b.regiao}</td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] font-bold whitespace-nowrap">{fmtMoney(b.valor_final)}</td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap"><StatusBadge status={b.status} /></td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">{fmtDate(b.created_at)}</td>
+                    <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">
                       <Link href={`/orcamentos/${b.id}`} className="btn py-1.5 px-2.5 text-[12.5px]">Ver</Link>
                     </td>
                   </tr>
@@ -288,7 +288,7 @@ function OrcamentosContent() {
                 {!loading && filtered.length === 0 && (
                   <tr>
                     <td colSpan={7} className="text-center py-16 text-muted">
-                      Nenhum orçamento encontrado.
+                      Nenhum orçamento encontrado com esses filtros.
                     </td>
                   </tr>
                 )}
@@ -297,7 +297,7 @@ function OrcamentosContent() {
           </div>
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory sm:snap-none">
           {STATUS_LIST.map((col) => {
             const items = filtered.filter((b) => b.status === col.key);
             return (
@@ -309,7 +309,7 @@ function OrcamentosContent() {
                   if (draggingId) updateStatus(draggingId, col.key);
                   setDraggingId(null);
                 }}
-                className="w-[270px] shrink-0 bg-surface/60 border border-[#202028] rounded-[14px] p-3"
+                className="w-[82vw] sm:w-[280px] shrink-0 snap-start bg-surface/60 border border-[#202028] rounded-[14px] p-3.5"
               >
                 <div className="flex items-center gap-2 px-1 pb-3 mb-1 border-b border-[#202028]">
                   <span className="w-2 h-2 rounded-full" style={{ background: col.color }} />

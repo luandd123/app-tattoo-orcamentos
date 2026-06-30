@@ -54,17 +54,17 @@ export default function ConfiguracoesPage() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between flex-wrap gap-3.5 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-7">
         <div>
-          <div className="text-2xl font-semibold">Configurações</div>
+          <div className="text-[26px] sm:text-2xl font-semibold">Configurações</div>
           <div className="text-muted text-[13.5px] mt-1">ajuste os parâmetros usados no cálculo de orçamento</div>
         </div>
-        <button onClick={saveSettings} disabled={saving} className="btn btn-primary">
+        <button onClick={saveSettings} disabled={saving} className="btn btn-primary w-full sm:w-auto justify-center">
           {saving ? "Salvando…" : "Salvar configurações"}
         </button>
       </div>
 
-      <div className="card p-5.5 mb-5">
+      <div className="card p-6 mb-5">
         <SectionTitle title="valores base" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <NumField label="Valor mínimo (R$)" value={settings.valor_minimo} onChange={(v) => setSettings({ ...settings, valor_minimo: v })} />
@@ -87,15 +87,16 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
 
-      <div className="card p-5.5">
+      <div className="card p-6">
         <SectionTitle title="tabela de preços base por região" />
         <p className="text-muted text-[12.5px] mb-3">
           Estes são os valores médios (complexidade 1×). O valor final = valor base × multiplicador de complexidade.
         </p>
         <div className="flex flex-col gap-2">
           {priceTable.map((row, idx) => (
-            <div key={row.id} className="grid grid-cols-[1fr_140px_120px] gap-3 items-center bg-surface2 border border-[#2b2b36] rounded-[10px] p-2.5">
+            <div key={row.id} className="grid grid-cols-1 sm:grid-cols-[1fr_140px_120px] gap-2 sm:gap-3 sm:items-center bg-surface2 border border-[#2b2b36] rounded-[10px] p-3 sm:p-2.5">
               <span className="text-[13px] font-medium px-1">{row.regiao}</span>
+              <div className="grid grid-cols-2 sm:contents gap-2">
               <input
                 type="number"
                 value={row.valor_base}
@@ -118,6 +119,7 @@ export default function ConfiguracoesPage() {
                 }}
                 onBlur={() => savePrice(priceTable[idx])}
               />
+              </div>
             </div>
           ))}
         </div>

@@ -58,8 +58,8 @@ export default function UsuariosPage() {
 
   return (
     <Shell>
-      <div className="mb-6">
-        <div className="text-2xl font-semibold">Usuários</div>
+      <div className="mb-7">
+        <div className="text-[26px] sm:text-2xl font-semibold">Usuários</div>
         <div className="text-muted text-[13.5px] mt-1">
           Novos usuários se cadastram pela tela de login e entram como "Atendente" — ajuste o acesso aqui.
         </div>
@@ -74,29 +74,29 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden !p-0">
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] border-collapse">
+          <table className="w-full text-[13px] border-collapse min-w-[560px]">
             <thead>
               <tr>
                 {["Nome", "E-mail", "Tipo de acesso", "Desde"].map((h) => (
-                  <th key={h} className="text-left text-[11px] uppercase tracking-wide text-muted2 px-3.5 py-2.5 border-b border-[#202028] font-semibold whitespace-nowrap">{h}</th>
+                  <th key={h} className="text-left text-[11px] uppercase tracking-wide text-muted2 px-4 py-3 border-b border-[#202028] font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
-                  <td className="px-3.5 py-3 border-b border-[#202028] font-semibold whitespace-nowrap">{u.name}</td>
-                  <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">{u.email}</td>
-                  <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap">
+                  <td className="px-4 py-3.5 border-b border-[#202028] font-semibold whitespace-nowrap">{u.name}</td>
+                  <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">{u.email}</td>
+                  <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap">
                     <select value={u.role} onChange={(e) => changeRole(u.id, e.target.value as UserRole)} className="py-1.5 text-[12.5px]">
                       <option value="admin">Administrador</option>
                       <option value="attendant">Atendente</option>
                       <option value="viewer">Visualização</option>
                     </select>
                   </td>
-                  <td className="px-3.5 py-3 border-b border-[#202028] whitespace-nowrap text-muted2">{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3.5 border-b border-[#202028] whitespace-nowrap text-muted2">{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
                 </tr>
               ))}
             </tbody>
