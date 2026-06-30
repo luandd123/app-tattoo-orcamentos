@@ -130,9 +130,20 @@ REGRAS ABSOLUTAS:
 
     // 7. Incrementa contador de uso
     const month = new Date().toISOString().slice(0, 7); // YYYY-MM
-    await supabase.rpc("increment_ai_usage", { p_user_id: user.id, p_month: month }).catch(() => {
-      // Função RPC opcional — não quebra se não existir
-    });
+try {
+  const month = new Date().toISOString().slice(0, 7);
+
+  const { error: usageError } = await supabase.rpc("increment_ai_usage", {
+    p_user_id: user.id,
+    p_month: month,
+  });
+
+  if (usageError) {
+    console.warn("increment_ai_usage falhou:", usageError.message);
+  }
+} catch (usageError) {
+  console.warn("increment_ai_usage indisponível:", usageError);
+}
 
     return NextResponse.json({ suggestion });
   } catch (e: any) {
