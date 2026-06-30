@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Shell from "@/components/Shell";
@@ -17,7 +17,7 @@ function fmtDate(iso: string) {
 
 type SortField = "criado_novo" | "criado_antigo" | "regiao" | "valor" | "cliente";
 
-export default function OrcamentosPage() {
+function OrcamentosContent() {
   const supabase = supabaseBrowser();
   const search = useSearchParams();
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -233,5 +233,19 @@ export default function OrcamentosPage() {
         </div>
       )}
     </Shell>
+  );
+}
+
+export default function OrcamentosPage() {
+  return (
+    <Suspense
+      fallback={
+        <Shell>
+          <div className="text-muted">Carregando orçamentos…</div>
+        </Shell>
+      }
+    >
+      <OrcamentosContent />
+    </Suspense>
   );
 }
