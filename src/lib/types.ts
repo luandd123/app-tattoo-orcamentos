@@ -1,36 +1,25 @@
 export type UserRole = "admin" | "attendant" | "viewer";
 
 export type BudgetStatus =
-  | "novo"
-  | "analise"
-  | "aguardando_cliente"
-  | "aprovado"
-  | "agendado"
-  | "finalizado"
-  | "perdido";
+  | "novo" | "analise" | "aguardando_cliente"
+  | "aprovado" | "agendado" | "finalizado" | "perdido";
 
 export type Complexidade = "baixa" | "media" | "alta";
 
 export const STATUS_LIST: { key: BudgetStatus; label: string; color: string }[] = [
-  { key: "novo", label: "Novo orçamento", color: "#7fb3e8" },
-  { key: "analise", label: "Em análise", color: "#c9a24b" },
-  { key: "aguardando_cliente", label: "Aguardando cliente", color: "#e0a35f" },
-  { key: "aprovado", label: "Aprovado", color: "#9c8ff0" },
-  { key: "agendado", label: "Agendado", color: "#5fae7a" },
-  { key: "finalizado", label: "Finalizado", color: "#5fc499" },
-  { key: "perdido", label: "Perdido/recusado", color: "#e8475f" },
+  { key: "novo",              label: "Novo orçamento",      color: "#7fb3e8" },
+  { key: "analise",           label: "Em análise",          color: "#c9a24b" },
+  { key: "aguardando_cliente",label: "Aguardando cliente",  color: "#e0a35f" },
+  { key: "aprovado",          label: "Aprovado",            color: "#9c8ff0" },
+  { key: "agendado",          label: "Agendado",            color: "#5fae7a" },
+  { key: "finalizado",        label: "Finalizado",          color: "#5fc499" },
+  { key: "perdido",           label: "Perdido/recusado",    color: "#e8475f" },
 ];
-
-export const COMPLEXIDADE_MULT: Record<Complexidade, number> = {
-  baixa: 0.85,
-  media: 1.0,
-  alta: 1.2,
-};
 
 export const COMPLEXIDADE_LABEL: Record<Complexidade, string> = {
   baixa: "Baixa (-15%)",
   media: "Média (valor base)",
-  alta: "Alta (+20%)",
+  alta:  "Alta (+20%)",
 };
 
 export interface Profile {
@@ -48,10 +37,11 @@ export interface Client {
   instagram: string | null;
   cidade: string | null;
   origem: string | null;
-  created_by: string | null;
+  created_by: string;
   created_at: string;
 }
 
+/** Tabela global (usada só como fallback / referência) */
 export interface PriceRow {
   id: string;
   regiao: string;
@@ -59,8 +49,19 @@ export interface PriceRow {
   tempo_base_horas: number;
 }
 
-export interface Settings {
-  id: number;
+/** Linha da tabela individual do usuário */
+export interface UserPriceRow {
+  id: string;
+  user_id: string;
+  regiao: string;
+  valor_base: number;
+  tempo_base_horas: number;
+}
+
+/** Configurações individuais do usuário */
+export interface UserSettings {
+  id: string;
+  user_id: string;
   valor_minimo: number;
   valor_hora: number;
   sinal_percentual: number;
@@ -71,7 +72,11 @@ export interface Settings {
   taxa_criacao_sim: number;
   taxa_criacao_adaptar: number;
   taxa_criacao_nao: number;
+  updated_at: string;
 }
+
+/** Mantida para compatibilidade de tipos com qualquer código legado */
+export type Settings = UserSettings;
 
 export interface Budget {
   id: string;
@@ -95,10 +100,9 @@ export interface Budget {
   obs_internas: string | null;
   referencias: string | null;
   status: BudgetStatus;
-  created_by: string | null;
+  created_by: string;
   created_at: string;
   updated_at: string;
-  // relations carregadas via join
   client?: Client;
 }
 
@@ -112,4 +116,23 @@ export interface ManualAdjustment {
   motivo: string | null;
   adjusted_by: string | null;
   adjusted_at: string;
+}
+
+export interface AiPlaybook {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AiSuggestion {
+  id: string;
+  user_id: string;
+  budget_id: string;
+  client_message: string;
+  ai_response: string;
+  created_at: string;
 }
